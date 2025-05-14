@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced To-Do List</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <link rel="icon" href="https://img.icons8.com/?size=100&id=f9MbZqpEUKcQ&format=png&color=000000" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom scrollbar for webkit browsers */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .dark ::-webkit-scrollbar-track {
+            background: #374151; /* Tailwind gray-700 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #6b7280; /* Tailwind gray-500 */
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563; /* Tailwind gray-600 */
+        }
+
+        /* Basic transition for dark mode */
+        body, .bg-custom, .text-custom {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Styles for SortableJS dragging */
+        .sortable-ghost {
+            opacity: 0.4;
+            background-color: #bfdbfe; /* Tailwind blue-200 */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .sortable-drag {
+            opacity: 0.9 !important;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Animation for adding/removing items */
+        .task-item {
+             transition: all 0.3s ease-out;
+        }
+        .task-item.adding {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+         .task-item.added {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .task-item.removing {
+             opacity: 0;
+            transform: translateX(20px);
+        }
+
+
+        /* Highlight for overdue/due today tasks */
+        .due-today {
+            border-left: 4px solid #f59e0b !important; /* Tailwind amber-500 */
+        }
+        .overdue {
+            border-left: 4px solid #ef4444 !important; /* Tailwind red-500 */
+        }
+        .completed .task-text {
+            text-decoration: line-through;
+            color: #9ca3af; /* Tailwind gray-400 */
+        }
+        .dark .completed .task-text {
+            color: #6b7280; /* Tailwind gray-500 for dark mode */
+        }
+
+        /* Priority colors */
+        .priority-low {
+            background-color: #d1fae5; /* Tailwind green-100 */
+            color: #065f46; /* Tailwind green-900 */
+        }
+        .dark .priority-low {
+            background-color: #065f46; /* Tailwind green-900 */
+            color: #d1fae5; /* Tailwind green-100 */
+        }
+         .priority-medium {
+            background-color: #fef3c7; /* Tailwind yellow-100 */
+            color: #78350f; /* Tailwind yellow-900 */
+        }
+         .dark .priority-medium {
+            background-color: #78350f; /* Tailwind yellow-900 */
+            color: #fef3c7; /* Tailwind yellow-100 */
+        }
+         .priority-high {
+            background-color: #fee2e2; /* Tailwind red-100 */
+            color: #7f1d1d; /* Tailwind red-900 */
+        }
+         .dark .priority-high {
+            background-color: #7f1d1d; /* Tailwind red-900 */
+            color: #fee2e2; /* Tailwind red-100 */
+        }
+
+        /* Quote box animation */
+        .quote-enter-active, .quote-leave-active {
+            transition: opacity 0.5s ease-in-out;
+        }
+        .quote-enter-from, .quote-leave-to {
+            opacity: 0;
+        }
+        .quote-enter-to, .quote-leave-from {
+            opacity: 1;
+        }
+
+        /* Timer display style */
+        .task-timer {
+            font-family: 'monospace';
+            font-size: 0.875rem; /* text-sm */
+            color: #3b82f6; /* Tailwind blue-500 */
+            margin-left: auto; /* Push timer to the right */
+            min-width: 100px; /* Ensure space for timer */
+            text-align: right;
+        }
+        .dark .task-timer {
+             color: #60a5fa; /* Tailwind blue-400 */
+        }
+         .task-timer.overdue-timer {
+            color: #ef4444; /* Tailwind red-500 */
+            font-weight: bold;
+         }
+
+         /* Scrollable task list */
+         #taskList {
+             max-height: 60vh; /* Adjust as needed */
+             overflow-y: auto;
+             padding-right: 8px; /* Add padding to prevent scrollbar from overlapping content */
+         }
+          .dark #taskList {
+             padding-right: 8px;
+          }
+
+          /* Responsive adjustments for task items */
+          @media (max-width: 640px) {
+            .task-item .task-details {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+             .task-item .task-timer {
+                 margin-left: 0;
+                 text-align: left;
+             }
+          }
+
+          /* Responsive and scrollable edit modal content */
+          #editModal .modal-content {
+              max-height: 80vh; /* Limit modal height */
+              overflow-y: auto; /* Enable vertical scrolling */
+              padding-right: 8px; /* Add padding for scrollbar */
+          }
+           .dark #editModal .modal-content {
+               padding-right: 8px;
+           }
+           /* Ensure modal width is reasonable on small screens */
+           #editModal .max-w-md {
+               max-width: 95%; /* Allow modal to take more width on small screens */
+           }
+            @media (min-width: 768px) { /* md breakpoint */
+                 #editModal .max-w-md {
+                    max-width: 28rem; /* Restore original max-width on larger screens */
+                 }
+            }
+
+
+    </style>
+    <script>
+        // Tailwind dark mode configuration
+        tailwind.config = {
+            darkMode: 'class', // or 'media'
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans antialiased">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-3xl">
+
+        <header class="flex justify-between items-center mb-6 sm:mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-blue-600 dark:text-blue-400">My Tasks</h1>
+            <button id="themeToggle" aria-label="Toggle dark mode" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <i class="fas fa-moon text-xl text-gray-700 dark:text-yellow-300"></i>
+            </button>
+        </header>
+
+        <form id="taskForm" class="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label for="taskInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New Task</label>
+                    <input type="text" id="taskInput" placeholder="What needs to be done?" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100" required>
+                </div>
+                <div>
+                    <label for="taskDueDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</label>
+                    <input type="date" id="taskDueDate" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100">
+                </div>
+                 <div>
+                    <label for="taskDueTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Time</label>
+                    <input type="time" id="taskDueTime" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100">
+                </div>
+                <div>
+                    <label for="taskPriority" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                    <select id="taskPriority" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="taskTags" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tags (comma-separated)</label>
+                    <input type="text" id="taskTags" placeholder="e.g., work, personal" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100">
+                </div>
+            </div>
+            <button type="submit" class="mt-4 w-full sm:w-auto px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+                <i class="fas fa-plus mr-2"></i>Add Task
+            </button>
+        </form>
+
+        <div class="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                <div>
+                    <label for="searchInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search Tasks</label>
+                    <input type="text" id="searchInput" placeholder="Search by keyword or tag..." class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100">
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <div>
+                        <label for="filterStatus" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                        <select id="filterStatus" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100">
+                            <option value="all">All</option>
+                            <option value="active">Active</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filterPriority" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                        <select id="filterPriority" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100">
+                            <option value="all">All</option>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                     <div class="col-span-2 sm:col-span-1">
+                        <button id="clearCompletedBtn" class="w-full mt-1 sm:mt-7 px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+                            <i class="fas fa-trash-alt mr-2"></i>Clear Completed
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="quoteBox" class="mb-6 p-4 bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-100 rounded-lg shadow-md text-center hidden quote-leave-to">
+            <p class="italic"><span id="quoteTextEnglish"></span></p>
+            <p class="text-sm mt-1 opacity-80"><span id="quoteTextArabic"></span></p>
+        </div>
+
+        <div id="taskStats" class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            Total: <span id="totalTasks">0</span> | Active: <span id="activeTasks">0</span> | Completed: <span id="completedTasksStat">0</span>
+        </div>
+
+        <ul id="taskList" class="space-y-3">
+            </ul>
+           <p id="noTasksMessage" class="text-center text-gray-500 dark:text-gray-400 py-8 text-lg hidden">No tasks yet. Add one above!</p>
+    </div>
+
+    <footer class="text-center p-4 mt-8 text-sm text-gray-600 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
+        &copy; <span id="currentYear"></span> Advanced To-Do List.
+        <p class="text-xs mt-1">Original concept by Mahmoud Sayed.</p>
+    </footer>
+
+    <div id="editModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Edit Task</h3>
+            <div class="modal-content"> <input type="hidden" id="editTaskId">
+                <div>
+                    <label for="editTaskInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task Text</label>
+                    <input type="text" id="editTaskInput" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100">
+                </div>
+                <div class="mt-4">
+                    <label for="editTaskDueDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</label>
+                    <input type="date" id="editTaskDueDate" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100">
+                </div>
+                 <div class="mt-4">
+                    <label for="editTaskDueTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Time</label>
+                    <input type="time" id="editTaskDueTime" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100">
+                </div>
+                <div class="mt-4">
+                    <label for="editTaskPriority" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                    <select id="editTaskPriority" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100">
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <div class="mt-4">
+                    <label for="editTaskTags" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tags</label>
+                    <input type="text" id="editTaskTags" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="cancelEditBtn" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button>
+                <button id="saveEditBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const taskForm = document.getElementById('taskForm');
+            const taskInput = document.getElementById('taskInput');
+            const taskDueDate = document.getElementById('taskDueDate');
+            const taskDueTime = document.getElementById('taskDueTime'); // Added time input
+            const taskPriority = document.getElementById('taskPriority');
+            const taskTags = document.getElementById('taskTags');
+            const taskList = document.getElementById('taskList');
+            const searchInput = document.getElementById('searchInput');
+            const filterStatus = document.getElementById('filterStatus');
+            const filterPriority = document.getElementById('filterPriority');
+            const clearCompletedBtn = document.getElementById('clearCompletedBtn');
+            const themeToggle = document.getElementById('themeToggle');
+            const noTasksMessage = document.getElementById('noTasksMessage');
+            const quoteBox = document.getElementById('quoteBox');
+            const quoteTextEnglish = document.getElementById('quoteTextEnglish');
+            const quoteTextArabic = document.getElementById('quoteTextArabic');
+
+
+            // Edit Modal Elements
+            const editModal = document.getElementById('editModal');
+            const editTaskId = document.getElementById('editTaskId');
+            const editTaskInput = document.getElementById('editTaskInput');
+            const editTaskDueDate = document.getElementById('editTaskDueDate');
+            const editTaskDueTime = document.getElementById('editTaskDueTime'); // Added time input
+            const editTaskPriority = document.getElementById('editTaskPriority');
+            const editTaskTags = document.getElementById('editTaskTags');
+            const saveEditBtn = document.getElementById('saveEditBtn');
+            const cancelEditBtn = document.getElementById('cancelEditBtn');
+
+            // Task Stats Elements
+            const totalTasksEl = document.getElementById('totalTasks');
+            const activeTasksEl = document.getElementById('activeTasks');
+            const completedTasksStatEl = document.getElementById('completedTasksStat');
+
+            // --- State ---
+            let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+            let currentTheme = localStorage.getItem('theme') || 'light';
+            let quoteTimeoutId = null; // To manage the quote display timeout
+            let timerIntervalId = null; // To manage the countdown timer interval
+
+             // Motivational quotes
+            const quotes = [
+                { english: "Fulfill your trust, and you will be safe and rewarded.", arabic: "أدّ الأمانةَ تَسلَم وتَغنَم" },
+                { english: "The beginning of success is an idea, and its end is action.", arabic: "بِدايةُ النّجاحِ فِكرةٌ، وَنِهايَتُهُ عَمَلٌ" },
+                { english: "Self-discipline is harder than raising children.", arabic: "تَربِيةُ النّفسِ أصعَبُ مِن تَربِيةِ الأبناءِ" },
+                { english: "A person's wealth lies in their mind and character.", arabic: "ثَروةُ الإنسانِ فِي عَقلِهِ وَخُلُقِهِ" },
+                { english: "The beauty of character lasts longer than the beauty of faces.", arabic: "جَمالُ الأخلاقِ يَدومُ أكثَرَ مِن جَمالِ الوُجوهِ" },
+                { english: "Having a positive outlook is a trait of the great.", arabic: "حُسنُ الظّنِّ مِن شِيَمِ العُظَمَاءِ" },
+                { english: "Losing time is worse than losing money.", arabic: "خَسارةُ الوَقتِ أشَدُّ مِن خَسارةِ المالِ" },
+                { english: "Nothing stays the same forever.", arabic: "دَوَامُ الْحَالِ مِنَ الْمُحَالِ" },
+                { english: "A person's intelligence lies in their ability to remain silent.", arabic: "ذَكَاءُ الْمَرْءِ فِي قُدْرَتِهِ عَلَى الصَّمْتِ" },
+                { english: "Be gentle with those around you, for gentleness is the key to hearts.", arabic: "رِفْقًا بِمَنْ حَوْلَكَ، فَالرِّفْقُ مِفْتَاحُ الْقُلُوبِ" },
+                { english: "The one who sows kindness reaps goodness.", arabic: "زَارِعُ الْمَعْرُوفِ يَحْصُدُ الْخَيْرَ" },
+                { english: "Forgive others, and God will forgive you.", arabic: "سَامِحِ النَّاسَ يُسَامِحْكَ اللَّهُ." },
+                { english: "Courage shows itself in times of hardship.", arabic: "شَجَاعَةُ النَّفْسِ تَظْهَرُ عِنْدَ الشَّدَائِدِ" },
+                { english: "Keep company with the good, for they are your mirror.", arabic: "صَاحِبِ الْأَخْيَارَ، فَإِنَّهُمْ مِرْآتُكَ" },
+                { english: "Put goodness in your path, and you will find it in your life", arabic: "ضَعِ الْخَيْرَ فِي طَرِيقِكَ تَجِدْهُ فِي حَيَاتِكَ" },
+                { english: "The path to success begins with a single step.", arabic: "طَرِيقُ النَّجَاحِ يَبْدَأُ بِخُطْوَةٍ" },
+                { english: "The shade of a tree is only given after the effort of planting it.", arabic: "ظِلُّ الشَّجَرَةِ لَا يُنَالُ إِلَّا بَعْدَ جُهْدٍ فِي زِرَاعَتِهَا" },
+                { english: "Knowledge without action is like a tree without fruit", arabic: "عِلْمٌ بِلَا عَمَلٍ كَشَجَرَةٍ بِلَا ثَمَرٍ" },
+                { english: "The height of wisdom is knowing the limits of your ignorance.", arabic: "غَايَةُ الْحِكْمَةِ أَنْ تَعْرِفَ حُدُودَ جَهْلِكَ" },
+                { english: "In patience, there is safety, and in haste, there is regret.", arabic: "فِي التَّأَنِّي السَّلَامَةُ، وَفِي الْعَجَلَةِ النَّدَامَةُ" },
+                { english: "A person's strength lies in their mind, not their body.", arabic: "قُوَّةُ الْإِنْسَانِ فِي عَقْلِهِ، لَا فِي جَسَدِهِ" },
+                { english: "Abundance of gratitude increases blessings", arabic: "كَثْرَةُ الشُّكْرِ تَزِيدُ النِّعَمَ" },
+                { english: "Do not postpone today's work until tomorrow", arabic: "لَا تُؤَجِّلْ عَمَلَ الْيَوْمِ إِلَى الْغَدِ" },
+                { english: "Whoever covets what is in the hands of others will find their own hands empty", arabic: "مَنْ تَطَلَّعَ إِلَى مَا فِي يَدِ غَيْرِهِ بَقِيَتْ يَدُهُ فَارِغَةً" },
+                { english: "Purity of heart brings love.", arabic: "نَقَاءُ الْقَلْبِ يَجْلِبُ الْمَحَبَّةَ" },
+                { english: "Inner peace stems from the contentment of the soul.", arabic: "هُدُوءُ النَّفْسِ يَنْبُعُ مِنْ رِضَا الرُّوحِ" },
+                { english: "The loyalty of a friend is the most precious treasure on Earth", arabic: "وَفَاءُ الصَّدِيقِ أَثْمَنُ كُنُوزِ الْأَرْضِ" },
+                { english: "Your day is your opportunity, so seize it.", arabic: "يَوْمُكَ هُوَ فُرْصَتُكَ، فَاغْتَنِمْهَا" },
+                { english: "It does not matter how slowly you go as long as you do not stop.", arabic: "لا يهم كم أنت بطيئ طالما أنك لن تتوقف." },
+                { english: "There are no short cuts to any place worth going.", arabic: "لا يوجد طريق مختصر إلى مكان يستحق الذهاب إليه." },
+                { english: "Be the change you want to see in the world.", arabic: "كن التغير الذي تريد أن تراه في العالم." },
+                { english: "Always bear in mind that your own resolution to succeed is more important than any other.", arabic: "دائما خذ في عين الإعتبيار أن قرار النجاح هو أهم من أي شيئ آخر." },
+                { english: "You miss 100% of the shots you don't take.", arabic: "أن تخفق 100% في الطلقات التي لا تطلقها." },
+                { english: "The greatest danger for most of us is not that our aim is too high and we miss it, but that is it too low and we reach it.", arabic: "الخطر الأعظمم على معظمنا هو ليس أن يكون هدفنا عال جداً, و أن نخفق في تحقيقه, بل أن يكون سهلاً جداً و نحققه." },
+                { english: "The best time to plant a tree was 20 years ago. The second best time is now.", arabic: "أفضل توقيت لزرع شجرة كان قبل 20 سنة و أفضل ثاني توقيت هو الآن." },
+                { english: "You can never cross the ocean until you have the courage to lose sight of the shore.", arabic: "لن تكون قادراً على قطع المحيط إذا لم يكن لديك الشجاعة أن تخسر مرآى الشاطئ." },
+                { english: "Whatever the mind of man can conceive and believe, it can achieve.", arabic: "مهما تصور أو صدق عقل الإنسان, فإنه قادر على تحقيقه." },
+                { english: "Happiness is not something ready made. It comes from your own actions.", arabic: "السعادة ليست شيئاً يحصل بسهولة, فإنها تأتي من أفعالك" }
+            ];
+
+            // Define min/max duration and corresponding quote lengths for scaling
+            const minDurationMs = 5000; // 5 seconds
+            const maxDurationMs = 12000; // 12 seconds
+            // Estimate reasonable min/max quote lengths from the provided quotes
+            const minQuoteLength = 30; // Based on "Nothing stays the same forever."
+            const maxQuoteLength = 153; // Based on "The greatest danger for most of us is not that our aim is too high and we miss it, but that is it too low and we reach it."
+
+
+            // --- Initialization ---
+            applyTheme(currentTheme);
+            renderTasks();
+            startTimerInterval(); // Start the timer update interval
+
+            if (taskList && typeof Sortable !== 'undefined') {
+                new Sortable(taskList, {
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    dragClass: 'sortable-drag',
+                    handle: '.drag-handle', // Define a handle if you want specific drag areas
+                    onEnd: (evt) => {
+                        // Update tasks array order after drag-and-drop
+                        const itemEl = evt.item; // dragged HTMLElement
+                        const oldIndex = evt.oldDraggableIndex;
+                        const newIndex = evt.newDraggableIndex;
+
+                        if (oldIndex !== undefined && newIndex !== undefined) {
+                            const movedTask = tasks.splice(oldIndex, 1)[0];
+                            tasks.splice(newIndex, 0, movedTask);
+                            saveTasks();
+                            // No need to re-render the whole list, just update timers
+                            // renderTasks();
+                            updateTimers(); // Ensure timers are updated after reorder
+                        }
+                    }
+                });
+            } else {
+                console.warn('SortableJS not found or taskList element is missing.');
+            }
+            document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+
+            // --- Functions ---
+
+            /**
+             * Saves tasks to localStorage.
+             */
+            function saveTasks() {
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+            }
+
+            /**
+             * Applies the selected theme (light/dark).
+             * @param {string} theme - The theme to apply ('light' or 'dark').
+             */
+            function applyTheme(theme) {
+                const htmlElement = document.documentElement;
+                const themeIcon = themeToggle.querySelector('i');
+                if (theme === 'dark') {
+                    htmlElement.classList.add('dark');
+                    if(themeIcon) themeIcon.classList.replace('fa-moon', 'fa-sun');
+                } else {
+                    htmlElement.classList.remove('dark');
+                    if(themeIcon) themeIcon.classList.replace('fa-sun', 'fa-moon');
+                }
+                localStorage.setItem('theme', theme);
+                currentTheme = theme;
+            }
+
+            /**
+             * Renders the tasks to the list, applying filters and search.
+             */
+            function renderTasks() {
+                const searchTerm = searchInput.value.toLowerCase();
+                const statusFilter = filterStatus.value;
+                const priorityFilter = filterPriority.value;
+
+                // Hide quote box when rendering tasks (e.g., after filter/search)
+                hideQuote();
+
+                // Filter tasks
+                const filteredTasks = tasks.filter(task => {
+                    const matchesSearch = task.text.toLowerCase().includes(searchTerm) ||
+                                         task.tags.some(tag => tag.toLowerCase().includes(searchTerm));
+                    const matchesStatus = statusFilter === 'all' ||
+                                         (statusFilter === 'completed' && task.completed) ||
+                                         (statusFilter === 'active' && !task.completed);
+                    const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
+                    return matchesSearch && matchesStatus && matchesPriority;
+                });
+
+                // Clear existing tasks with exit animation
+                const taskItems = taskList.querySelectorAll('.task-item');
+                 taskItems.forEach(item => item.classList.add('removing'));
+
+                 // Wait for animation to finish before clearing and adding new ones
+                 setTimeout(() => {
+                    taskList.innerHTML = ''; // Clear existing tasks
+
+                    if (filteredTasks.length === 0) {
+                        noTasksMessage.classList.remove('hidden');
+                    } else {
+                        noTasksMessage.classList.add('hidden');
+                        filteredTasks.forEach((task) => {
+                            const li = createTaskElement(task);
+                            taskList.appendChild(li);
+                             // Trigger enter animation
+                            requestAnimationFrame(() => {
+                                li.classList.remove('adding');
+                                li.classList.add('added');
+                            });
+                        });
+                    }
+                    updateTaskStats();
+                    updateTimers(); // Update timers immediately after rendering
+                 }, taskItems.length > 0 ? 300 : 0); // Adjust timeout based on animation duration
+
+
+            }
+
+            /**
+             * Updates the task statistics (total, active, completed).
+             */
+            function updateTaskStats() {
+                const total = tasks.length;
+                const active = tasks.filter(task => !task.completed).length;
+                const completed = total - active;
+
+                totalTasksEl.textContent = total;
+                activeTasksEl.textContent = active;
+                completedTasksStatEl.textContent = completed;
+            }
+
+            /**
+             * Creates an HTML list item element for a task.
+             * @param {object} task - The task object.
+             * @returns {HTMLLIElement} The created list item element.
+             */
+            function createTaskElement(task) {
+                const li = document.createElement('li');
+                li.className = `task-item flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 adding ${task.completed ? 'completed' : ''}`;
+                li.dataset.id = task.id; // Use unique ID for tasks
+
+                // Add due date highlighting
+                const now = new Date();
+                if (task.dueDate && !task.completed) { // Only highlight if not completed
+                    const deadline = new Date(task.dueDate);
+                    if (deadline < now) {
+                        li.classList.add('overdue');
+                    } else {
+                         const today = new Date().setHours(0, 0, 0, 0);
+                        const dueDateOnly = new Date(task.dueDate).setHours(0, 0, 0, 0);
+                        if (dueDateOnly === today) {
+                            li.classList.add('due-today');
+                        }
+                    }
+                }
+
+                // Task content
+                const taskContent = document.createElement('div');
+                taskContent.className = 'flex-grow flex items-center mb-2 sm:mb-0';
+
+                // Checkbox for completion
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = task.completed;
+                checkbox.className = 'form-checkbox h-5 w-5 text-blue-600 dark:text-blue-400 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 mr-3 cursor-pointer';
+                checkbox.setAttribute('aria-label', `Mark task ${task.text} as ${task.completed ? 'incomplete' : 'complete'}`);
+                checkbox.addEventListener('change', () => toggleComplete(task.id));
+
+                const textSpan = document.createElement('span');
+                textSpan.className = 'task-text text-gray-800 dark:text-gray-200 cursor-pointer text-base';
+                textSpan.textContent = task.text;
+                // Removed click listener on textSpan to prevent accidental completion toggle when trying to drag or select text
+                // textSpan.addEventListener('click', () => toggleComplete(task.id)); // Allow toggling by clicking text
+
+                taskContent.appendChild(checkbox);
+                taskContent.appendChild(textSpan);
+
+                // Task details and actions container
+                const detailsAndActions = document.createElement('div');
+                detailsAndActions.className = 'flex items-center space-x-2 sm:space-x-3 text-xs sm:text-sm w-full sm:w-auto justify-between sm:justify-start task-details'; // Added task-details class
+
+
+                // Task details (priority, due date, tags, timer)
+                const taskDetails = document.createElement('div');
+                taskDetails.className = 'flex items-center space-x-2 sm:space-x-3';
+
+                const prioritySpan = document.createElement('span');
+                prioritySpan.className = `px-2 py-1 rounded-full font-medium text-xs ${getPriorityClass(task.priority)}`;
+                prioritySpan.textContent = task.priority.charAt(0).toUpperCase() + task.priority.slice(1);
+                taskDetails.appendChild(prioritySpan);
+
+                if (task.dueDate) {
+                    const dateSpan = document.createElement('span');
+                    dateSpan.className = 'text-gray-500 dark:text-gray-400 flex items-center';
+                    const deadline = new Date(task.dueDate);
+                    dateSpan.innerHTML = `<i class="fas fa-calendar-alt mr-1"></i> ${deadline.toLocaleDateString()} ${deadline.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                    taskDetails.appendChild(dateSpan);
+
+                    // Add timer display element - only if not completed
+                    if (!task.completed) {
+                        const timerSpan = document.createElement('span');
+                        timerSpan.className = 'task-timer';
+                        timerSpan.dataset.taskId = task.id; // Store task ID for timer updates
+                        taskDetails.appendChild(timerSpan);
+                    }
+
+
+                }
+
+                if (task.tags && task.tags.length > 0) {
+                    const tagsContainer = document.createElement('div');
+                    tagsContainer.className = 'hidden sm:flex flex-wrap gap-1';
+                    task.tags.forEach(tag => {
+                        const tagSpan = document.createElement('span');
+                        tagSpan.className = 'px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full text-xs';
+                        tagSpan.textContent = tag;
+                        tagsContainer.appendChild(tagSpan);
+                    });
+                    taskDetails.appendChild(tagsContainer);
+                }
+
+                // Action buttons
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'flex items-center space-x-1 sm:space-x-2 ml-2';
+
+                const dragHandle = document.createElement('button');
+                dragHandle.className = 'drag-handle p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-grab focus:outline-none';
+                dragHandle.innerHTML = '<i class="fas fa-grip-vertical"></i>';
+                dragHandle.setAttribute('aria-label', `Drag to reorder task ${task.text}`);
+                actionsDiv.appendChild(dragHandle);
+
+                const editBtn = document.createElement('button');
+                editBtn.className = 'p-1 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none';
+                editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+                editBtn.setAttribute('aria-label', `Edit task ${task.text}`);
+                editBtn.addEventListener('click', () => openEditModal(task.id));
+                actionsDiv.appendChild(editBtn);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 focus:outline-none';
+                deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                deleteBtn.setAttribute('aria-label', `Delete task ${task.text}`);
+                deleteBtn.addEventListener('click', () => deleteTask(task.id));
+                actionsDiv.appendChild(deleteBtn);
+
+                detailsAndActions.appendChild(taskDetails);
+                detailsAndActions.appendChild(actionsDiv);
+
+
+                li.appendChild(taskContent);
+                li.appendChild(detailsAndActions);
+
+                return li;
+            }
+
+             /**
+             * Gets the appropriate Tailwind class for task priority.
+             * @param {string} priority - The priority level ('low', 'medium', 'high').
+             * @returns {string} The Tailwind class string.
+             */
+            function getPriorityClass(priority) {
+                 switch (priority) {
+                    case 'low':
+                        return 'priority-low';
+                    case 'medium':
+                        return 'priority-medium';
+                    case 'high':
+                        return 'priority-high';
+                    default:
+                        return 'priority-medium'; // Default
+                 }
+            }
+
+
+            /**
+             * Adds a new task.
+             * @param {Event} e - The form submission event.
+             */
+            function addTask(e) {
+                e.preventDefault();
+                const text = taskInput.value.trim();
+                const date = taskDueDate.value;
+                const time = taskDueTime.value;
+                const priority = taskPriority.value;
+                const tags = taskTags.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+
+                if (!text) return;
+
+                // Combine date and time if both are provided
+                const dueDate = (date && time) ? `${date}T${time}` : date || null;
+
+                const newTask = {
+                    id: Date.now().toString(), // Unique ID for each task
+                    text,
+                    completed: false,
+                    dueDate: dueDate, // Store combined date and time or just date
+                    priority: priority || 'medium',
+                    tags: tags || []
+                };
+
+                tasks.push(newTask);
+                saveTasks();
+                renderTasks(); // Re-render the list with the new task
+
+                // Clear form
+                taskInput.value = '';
+                taskDueDate.value = '';
+                taskDueTime.value = ''; // Clear time input
+                taskPriority.value = 'medium';
+                taskTags.value = '';
+
+                // Hide quote box when adding a new task
+                hideQuote();
+            }
+
+            /**
+             * Toggles the completion status of a task.
+             * @param {string} id - The ID of the task to toggle.
+             */
+            function toggleComplete(id) {
+                const task = tasks.find(task => task.id === id);
+                if (task) {
+                    task.completed = !task.completed;
+                    saveTasks();
+                    renderTasks(); // Re-render to update UI
+
+                    // Display quote if task is completed
+                    if (task.completed) {
+                        displayRandomQuote();
+                    } else {
+                         // Hide quote if task is marked incomplete
+                        hideQuote();
+                    }
+                }
+            }
+
+            /**
+             * Deletes a task.
+             * @param {string} id - The ID of the task to delete.
+             */
+            function deleteTask(id) {
+                 const taskItem = document.querySelector(`li[data-id='${id}']`);
+                 if (taskItem) {
+                    taskItem.classList.add('removing'); // Add removing class for animation
+                    taskItem.addEventListener('transitionend', () => {
+                        tasks = tasks.filter(task => task.id !== id);
+                        saveTasks();
+                        renderTasks(); // Re-render after removal
+                        hideQuote(); // Hide quote if a task is deleted
+                    });
+                 }
+            }
+
+            /**
+             * Opens the edit modal for a specific task.
+             * @param {string} id - The ID of the task to edit.
+             */
+            function openEditModal(id) {
+                const task = tasks.find(task => task.id === id);
+                if (task) {
+                    editTaskId.value = task.id;
+                    editTaskInput.value = task.text;
+
+                    // Populate date and time inputs separately
+                    if (task.dueDate) {
+                        const deadline = new Date(task.dueDate);
+                        const datePart = deadline.toISOString().split('T')[0];
+                        // Check if time part exists before splitting
+                        const timePart = task.dueDate.includes('T') ? deadline.toTimeString().split(' ')[0].substring(0, 5) : '';
+                        editTaskDueDate.value = datePart;
+                        editTaskDueTime.value = timePart;
+                    } else {
+                        editTaskDueDate.value = '';
+                        editTaskDueTime.value = '';
+                    }
+
+                    editTaskPriority.value = task.priority || 'medium';
+                    editTaskTags.value = task.tags ? task.tags.join(', ') : '';
+                    editModal.classList.remove('hidden');
+                    hideQuote(); // Hide quote when opening modal
+                }
+            }
+
+            /**
+             * Closes the edit modal.
+             */
+            function closeEditModal() {
+                editModal.classList.add('hidden');
+            }
+
+            /**
+             * Saves changes from the edit modal.
+             */
+            function saveEditChanges() {
+                const id = editTaskId.value;
+                const task = tasks.find(task => task.id === id);
+                if (task) {
+                    task.text = editTaskInput.value.trim();
+
+                    const date = editTaskDueDate.value;
+                    const time = editTaskDueTime.value;
+                    // Combine date and time if both are provided
+                    task.dueDate = (date && time) ? `${date}T${time}` : date || null;
+
+
+                    task.priority = editTaskPriority.value || 'medium';
+                    task.tags = editTaskTags.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+
+                    if (!task.text) {
+                         // Prevent saving empty task, maybe show a message or revert
+                         console.warn("Task text cannot be empty.");
+                         return;
+                    }
+
+                    saveTasks();
+                    renderTasks(); // Re-render to update the edited task
+                    closeEditModal();
+                }
+            }
+
+            /**
+             * Displays a random motivational quote with duration based on length.
+             */
+            function displayRandomQuote() {
+                if (quotes.length === 0) return;
+
+                // Clear any existing timeout
+                if (quoteTimeoutId) {
+                    clearTimeout(quoteTimeoutId);
+                }
+
+                const randomIndex = Math.floor(Math.random() * quotes.length);
+                const randomQuote = quotes[randomIndex];
+
+                quoteTextEnglish.textContent = randomQuote.english;
+                quoteTextArabic.textContent = randomQuote.arabic;
+
+                // Calculate duration based on quote length
+                const quoteLength = randomQuote.english.length + randomQuote.arabic.length; // Use total length
+                // Clamp quote length to the defined min/max range
+                const clampedLength = Math.max(minQuoteLength, Math.min(maxQuoteLength, quoteLength));
+
+                // Linear interpolation for duration
+                // Scale the clamped length from [minQuoteLength, maxQuoteLength] to [minDurationMs, maxDurationMs]
+                const duration = minDurationMs + (clampedLength - minQuoteLength) / (maxQuoteLength - minQuoteLength) * (maxDurationMs - minDurationMs);
+
+                // Show the quote box with animation
+                quoteBox.classList.remove('hidden', 'quote-leave-to');
+                quoteBox.classList.add('quote-enter-active');
+
+                // Set timeout to hide the quote after the calculated duration
+                quoteTimeoutId = setTimeout(hideQuote, duration);
+            }
+
+            /**
+             * Hides the motivational quote box.
+             */
+            function hideQuote() {
+                 if (!quoteBox.classList.contains('hidden')) {
+                    quoteBox.classList.remove('quote-enter-active');
+                    quoteBox.classList.add('quote-leave-active');
+                    // Add a small delay before removing 'quote-leave-active' to ensure transition plays
+                    setTimeout(() => {
+                         quoteBox.classList.add('hidden');
+                         quoteBox.classList.remove('quote-leave-active');
+                    }, 500); // Match CSS transition duration
+                 }
+                 // Clear the timeout if it exists
+                 if (quoteTimeoutId) {
+                    clearTimeout(quoteTimeoutId);
+                    quoteTimeoutId = null;
+                 }
+            }
+
+            /**
+             * Starts the interval for updating countdown timers.
+             */
+            function startTimerInterval() {
+                // Clear existing interval if any
+                if (timerIntervalId) {
+                    clearInterval(timerIntervalId);
+                }
+                // Update timers every second
+                timerIntervalId = setInterval(updateTimers, 1000);
+            }
+
+            /**
+             * Updates the countdown timers for all visible tasks.
+             */
+            function updateTimers() {
+                const now = new Date().getTime(); // Current time in milliseconds
+
+                // Iterate through all task list items currently in the DOM
+                taskList.querySelectorAll('.task-item').forEach(taskItemEl => {
+                    const taskId = taskItemEl.dataset.id;
+                    const task = tasks.find(t => t.id === taskId);
+                    const timerEl = taskItemEl.querySelector('.task-timer');
+
+                    // Only update timer for active tasks with a due date and a timer element
+                    if (task && !task.completed && task.dueDate && timerEl) {
+                        const deadlineTime = new Date(task.dueDate).getTime();
+                        const timeRemaining = deadlineTime - now; // Time remaining in milliseconds
+
+                        if (timeRemaining > 0) {
+                            const seconds = Math.floor((timeRemaining / 1000) % 60);
+                            const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
+                            const hours = Math.floor((timeRemaining / (1000 * 60 * 60)) % 24);
+                            const days = Math.floor(timeRemaining / (1000 * 60 * 60 * 24));
+
+                            // Format the time
+                            const formattedTime = `${String(days).padStart(2, '0')}:${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+                            timerEl.textContent = formattedTime;
+                            timerEl.classList.remove('overdue-timer'); // Ensure overdue style is removed
+                            // Remove overdue class from task item if it was previously overdue but now has time remaining (e.g., after editing)
+                            if (taskItemEl.classList.contains('overdue')) {
+                                taskItemEl.classList.remove('overdue');
+                            }
+                        } else {
+                            // Deadline has passed
+                            timerEl.textContent = 'Overdue';
+                            timerEl.classList.add('overdue-timer'); // Add overdue style
+                            // Add overdue styling on the task item
+                            if (!taskItemEl.classList.contains('overdue')) {
+                                taskItemEl.classList.add('overdue');
+                            }
+                             // Stop timer for this specific task if it's overdue
+                             // (While the interval continues for other tasks, we stop updating this one)
+                             // This is handled by the 'if' condition at the start of the loop,
+                             // but explicitly setting text to 'Overdue' is the final state.
+                        }
+                    } else if (timerEl) {
+                         // Hide timer if task is completed, has no due date, or is filtered out
+                         timerEl.textContent = ''; // Clear timer display
+                         timerEl.classList.remove('overdue-timer');
+                    }
+                });
+            }
+
+
+            // --- Event Listeners ---
+            taskForm.addEventListener('submit', addTask);
+            searchInput.addEventListener('input', renderTasks);
+            filterStatus.addEventListener('change', renderTasks);
+            filterPriority.addEventListener('change', renderTasks);
+            clearCompletedBtn.addEventListener('click', () => {
+                tasks = tasks.filter(task => !task.completed);
+                saveTasks();
+                renderTasks();
+                 hideQuote(); // Hide quote after clearing completed tasks
+            });
+            themeToggle.addEventListener('click', () => {
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                applyTheme(newTheme);
+            });
+
+            // Edit modal event listeners
+            saveEditBtn.addEventListener('click', saveEditChanges);
+            cancelEditBtn.addEventListener('click', closeEditModal);
+             // Close modal if clicking outside the modal content
+            editModal.addEventListener('click', (e) => {
+                if (e.target === editModal) {
+                    closeEditModal();
+                }
+            });
+             // Close modal with Escape key
+             document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !editModal.classList.contains('hidden')) {
+                    closeEditModal();
+                }
+             });
+
+             // Stop timer interval when the window is closed or navigated away
+             window.addEventListener('beforeunload', () => {
+                if (timerIntervalId) {
+                    clearInterval(timerIntervalId);
+                }
+             });
+        });
+    </script>
+</body>
+</html>
